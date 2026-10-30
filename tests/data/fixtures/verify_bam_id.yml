@@ -1,0 +1,9 @@
+- id_verify: 1
+  id_seq_composition: 2
+  id_run: 45678
+  position: 1
+  tag_index: 3
+  number_of_snps: 1500
+  avg_depth: "15.75"
+  freemix: "0.00123"
+  pass: 1

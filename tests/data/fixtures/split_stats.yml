@@ -1,0 +1,6 @@
+- id_split_stats: 1
+  id_seq_composition: 1
+  reference: /references/Homo_sapiens/GRCh38/all/bwa/Homo_sapiens.GRCh38.fa
+  ref_name: human
+  num_aligned1: 9000
+  num_not_aligned1: 1000

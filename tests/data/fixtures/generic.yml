@@ -1,0 +1,14 @@
+- id_generic: 1
+  id_seq_composition: 2
+  pp_name: ncov2019-artic-nf
+  doc:
+    meta:
+      sample_type: positive_control
+      num_input_reads: 102394
+    QC summary:
+      pct_N_bases: 1.67
+      qc_pass: true
+      lineages: [B.1.1.7, B.1.617.2]
+  info:
+    Check: npg_qc::autoqc::checks::generic
+    Check_version: 72.1.0
