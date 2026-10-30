@@ -1,7 +1,9 @@
 # npgqc-python
 
-This package contains an ORM for an existing database schema, which hosts information
-about manual qc.
+This package contains an ORM for an existing database schema, which hosts
+autoqc results and manual QC outcomes for sequencing data. A Perl ORM for the
+same schema is defined in [npg_qc](https://github.com/wtsi-npg/npg_qc).
+Migrations for that schema are also tracked in the Perl package.
 
 This ORM has been auto-generated with [`sqlacodegen 4.0.4`](https://pypi.org/project/sqlacodegen/4.0.4/)
 

@@ -8,3 +8,5 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 * ORM for the NPG-QC database schema
+* Utilities to retrieve compositions by digest or run, and manual QC
+  outcomes by run
