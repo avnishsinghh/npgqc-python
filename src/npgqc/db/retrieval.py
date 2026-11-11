@@ -94,10 +94,7 @@ def get_mqc_outcomes_by_run(session: Session, id_run: int) -> list[MqcOutcomeEnt
     compositions = _compositions_by_run(id_run).subquery()
     statement = (
         select(MqcOutcomeEnt)
-        .join(
-            compositions,
-            MqcOutcomeEnt.id_seq_composition == compositions.c.id_seq_composition,
-        )
+        .join(compositions)
         .order_by(MqcOutcomeEnt.id_seq_composition)
     )
     return list(session.execute(statement).scalars())

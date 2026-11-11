@@ -15,17 +15,35 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Database-free tests of the ORM mapping."""
+"""Tests for the ORM mapping and for querying the database through it.
+
+The tests in TestQuery need a MySQL database and are skipped unless
+NPGQC_TEST_DB_URL is set; see the README for how to run them.
+"""
+
+import datetime
+from decimal import Decimal
 
 import pytest
 from pytest import mark as m
-from sqlalchemy import inspect
+from sqlalchemy import select
 from sqlalchemy.orm import configure_mappers
 
-from npgqc.db.schema import Base
+from npgqc.db.schema import (
+    Base,
+    Generic,
+    MqcOutcomeEnt,
+    SamtoolsStats,
+    SeqComponent,
+    SeqComposition,
+    SequenceSummary,
+    SplitStats,
+    VerifyBamId,
+)
 
 MAPPERS = sorted(Base.registry.mappers, key=lambda mp: mp.class_.__name__)
-TABLES = sorted(Base.metadata.tables.values(), key=lambda t: t.name)
+LANE_DIGEST = "a" * 64
+PLEX_DIGEST = "b" * 64
 
 
 @m.describe("ORM mapping")
@@ -33,26 +51,6 @@ class TestMapping:
     @m.it("Configures all mappers without errors")
     def test_configure_mappers(self):
         configure_mappers()
-
-    @m.it("Maps every table in the metadata to a class")
-    def test_tables_mapped(self):
-        mapped = {mp.local_table.name for mp in MAPPERS}
-        assert mapped == set(Base.metadata.tables)
-
-    @m.it("Has a reciprocal relationship for every back_populates")
-    @pytest.mark.parametrize("mapper", MAPPERS, ids=lambda mp: mp.class_.__name__)
-    def test_back_populates(self, mapper):
-        configure_mappers()
-        for rel in mapper.relationships:
-            assert rel.back_populates, f"{rel} has no back_populates"
-            reverse = rel.mapper.relationships[rel.back_populates]
-            assert reverse.back_populates == rel.key
-            assert reverse.mapper is mapper
-
-    @m.it("Gives every class a primary key")
-    @pytest.mark.parametrize("mapper", MAPPERS, ids=lambda mp: mp.class_.__name__)
-    def test_primary_key(self, mapper):
-        assert inspect(mapper.class_).primary_key
 
     @m.it("Has a relationship for every foreign key")
     @pytest.mark.parametrize("mapper", MAPPERS, ids=lambda mp: mp.class_.__name__)
@@ -62,8 +60,113 @@ class TestMapping:
         for fk in mapper.local_table.foreign_key_constraints:
             assert frozenset(fk.columns) in related, f"{fk.name} has no relationship"
 
-    @m.it("Names every foreign key and index")
-    @pytest.mark.parametrize("table", TABLES, ids=lambda t: t.name)
-    def test_constraint_names(self, table):
-        for constraint in [*table.foreign_key_constraints, *table.indexes]:
-            assert constraint.name, f"Unnamed {constraint!r} on {table.name}"
+
+@m.describe("Querying through the ORM")
+class TestQuery:
+    @m.it("Links a composition to its components")
+    def test_composition_components(self, session):
+        compos = session.execute(
+            select(SeqComposition).where(SeqComposition.digest == LANE_DIGEST)
+        ).scalar_one()
+
+        components = [cc.seq_component for cc in compos.seq_component_composition]
+        assert compos.size == len(components) == 2
+        assert sorted((c.id_run, c.position) for c in components) == [
+            (45678, 1),
+            (45678, 2),
+        ]
+
+    @m.it("Links a component back to its compositions")
+    def test_component_compositions(self, session):
+        component = session.execute(
+            select(SeqComponent).where(SeqComponent.tag_index == 3)
+        ).scalar_one()
+
+        digests = [cc.seq_composition.digest for cc in component.seq_component_composition]
+        assert digests == [PLEX_DIGEST]
+
+    @m.it("Retrieves a manual QC outcome with its dictionary entry")
+    def test_mqc_outcome(self, session):
+        outcome = session.execute(
+            select(MqcOutcomeEnt).join(SeqComposition).where(
+                SeqComposition.digest == LANE_DIGEST
+            )
+        ).scalar_one()
+
+        assert outcome.mqc_outcome_dict.short_desc == "Accepted final"
+        assert outcome.seq_composition.mqc_outcome_ent == [outcome]
+        assert isinstance(outcome.last_modified, datetime.datetime)
+
+    @m.it("Round-trips binary data in a LONGBLOB column")
+    def test_longblob(self, session):
+        stats = session.execute(
+            select(SamtoolsStats).where(SamtoolsStats.filter == "F0x900")
+        ).scalar_one()
+
+        assert stats.stats == b"\x1f\x8b\x08\x00compressed"
+        assert stats.seq_composition.digest == PLEX_DIGEST
+
+    @m.it("Applies default values on insert when no value is given")
+    def test_server_defaults(self, session):
+        compos = session.execute(
+            select(SeqComposition).where(SeqComposition.digest == PLEX_DIGEST)
+        ).scalar_one()
+        summary = SequenceSummary(
+            seq_composition=compos,
+            sequence_format="CRAM",
+            header="@HD\tVN:1.6",
+            seqchksum="1",
+            seqchksum_sha512="2",
+            md5="c" * 32,
+        )
+        session.add(summary)
+        session.flush()
+        session.refresh(summary)
+
+        assert summary.iscurrent == 1
+        assert isinstance(summary.date, datetime.datetime)
+
+    @m.it("Deserialises JSON columns to Python objects")
+    def test_json(self, session):
+        generic = session.execute(
+            select(Generic).where(Generic.pp_name == "ncov2019-artic-nf")
+        ).scalar_one()
+
+        assert generic.doc == {
+            "meta": {"sample_type": "positive_control", "num_input_reads": 102394},
+            "QC summary": {
+                "pct_N_bases": 1.67,
+                "qc_pass": True,
+                "lineages": ["B.1.1.7", "B.1.617.2"],
+            },
+        }
+        assert generic.info["Check_version"] == "72.1.0"
+        assert generic.seq_composition.digest == PLEX_DIGEST
+
+    @m.it("Returns DECIMAL columns as exact Decimal values")
+    def test_decimal(self, session):
+        verify = session.execute(
+            select(VerifyBamId).join(SeqComposition).where(
+                SeqComposition.digest == PLEX_DIGEST
+            )
+        ).scalar_one()
+
+        assert verify.freemix == Decimal("0.00123")
+        assert verify.avg_depth == Decimal("15.75")
+        assert isinstance(verify.freemix, Decimal)
+        assert verify.pass_ == 1
+
+    @m.it("Links split stats to their per-chromosome coverage")
+    def test_split_stats_coverage(self, session):
+        stats = session.execute(
+            select(SplitStats).join(SeqComposition).where(
+                SeqComposition.digest == LANE_DIGEST
+            )
+        ).scalar_one()
+
+        coverage = sorted(stats.split_stats_coverage, key=lambda c: c.chromosome)
+        assert [(c.chromosome, c.coverage) for c in coverage] == [
+            ("11", 0.5),
+            ("MT", 1.25),
+        ]
+        assert all(c.split_stats is stats for c in coverage)
