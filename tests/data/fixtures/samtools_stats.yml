@@ -1,0 +1,4 @@
+- id_samtools_stats: 1
+  id_seq_composition: 2
+  filter: F0x900
+  stats: base64:H4sIAGNvbXByZXNzZWQ=
