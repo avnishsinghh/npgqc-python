@@ -4,3 +4,12 @@
 - id_seq_composition: 2
   digest: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
   size: 1
+- id_seq_composition: 3
+  digest: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  size: 1
+- id_seq_composition: 4
+  digest: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+  size: 1
+- id_seq_composition: 5
+  digest: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+  size: 1

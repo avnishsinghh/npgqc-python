@@ -15,10 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections.abc import Sequence
+
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from npgqc.db.schema import (
+    MqcLibraryOutcomeEnt,
     MqcOutcomeEnt,
     SeqComponent,
     SeqComponentComposition,
@@ -46,7 +49,7 @@ def get_composition_by_digest(session: Session, digest: str) -> SeqComposition |
 
 def get_compositions_by_run(
     session: Session, id_run: int, position: int | None = None
-) -> list[SeqComposition]:
+) -> Sequence[SeqComposition]:
     """Retrieves compositions that contain at least one component of a run.
 
     A composition that merges components from several lanes or runs is
@@ -63,18 +66,20 @@ def get_compositions_by_run(
 
     Returns:
     -------
-      A list of compositions ordered by their primary key.
+      A sequence of compositions ordered by their primary key.
 
-      An empty list is returned if no composition satisfies the given criteria.
+      An empty sequence is returned if no composition satisfies the given criteria.
     """
     statement = _compositions_by_run(id_run, position).order_by(
         SeqComposition.id_seq_composition
     )
-    return list(session.execute(statement).scalars())
+    return session.scalars(statement).all()
 
 
-def get_mqc_outcomes_by_run(session: Session, id_run: int) -> list[MqcOutcomeEnt]:
-    """Retrieves current sequencing manual QC outcomes for a run.
+def get_mqc_lane_outcomes_by_run(
+    session: Session, id_run: int
+) -> Sequence[MqcOutcomeEnt]:
+    """Retrieves current lane (sequencing) manual QC outcomes for a run.
 
     Outcomes are found through the components of their compositions, rather
     than the denormalised id_run column of the outcome table, which is optional.
@@ -87,9 +92,9 @@ def get_mqc_outcomes_by_run(session: Session, id_run: int) -> list[MqcOutcomeEnt
 
     Returns:
     -------
-      A list of outcomes ordered by their composition's primary key.
+      A sequence of outcomes ordered by their composition's primary key.
 
-      An empty list is returned if the run has no outcomes.
+      An empty sequence is returned if the run has no outcomes.
     """
     compositions = _compositions_by_run(id_run).subquery()
     statement = (
@@ -97,7 +102,36 @@ def get_mqc_outcomes_by_run(session: Session, id_run: int) -> list[MqcOutcomeEnt
         .join(compositions)
         .order_by(MqcOutcomeEnt.id_seq_composition)
     )
-    return list(session.execute(statement).scalars())
+    return session.scalars(statement).all()
+
+
+def get_mqc_library_outcomes_by_run(
+    session: Session, id_run: int
+) -> Sequence[MqcLibraryOutcomeEnt]:
+    """Retrieves current library manual QC outcomes for a run.
+
+    Outcomes are found through the components of their compositions, rather
+    than the denormalised id_run column of the outcome table, which is optional.
+
+    Args:
+      session :
+        Database session.
+      id_run :
+        NPG tracking run ID.
+
+    Returns:
+    -------
+      A sequence of outcomes ordered by their composition's primary key.
+
+      An empty sequence is returned if the run has no outcomes.
+    """
+    compositions = _compositions_by_run(id_run).subquery()
+    statement = (
+        select(MqcLibraryOutcomeEnt)
+        .join(compositions)
+        .order_by(MqcLibraryOutcomeEnt.id_seq_composition)
+    )
+    return session.scalars(statement).all()
 
 
 def _compositions_by_run(id_run: int, position: int | None = None) -> Select:
