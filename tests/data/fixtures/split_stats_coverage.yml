@@ -1,0 +1,10 @@
+- id_split_stats_coverage: 1
+  id_split_stats: 1
+  chromosome: "11"
+  fastq: 1
+  coverage: 0.5
+- id_split_stats_coverage: 2
+  id_split_stats: 1
+  chromosome: MT
+  fastq: 1
+  coverage: 1.25
