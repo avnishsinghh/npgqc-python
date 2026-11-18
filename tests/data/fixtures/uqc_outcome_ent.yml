@@ -1,0 +1,18 @@
+- id_uqc_outcome_ent: 1
+  id_seq_composition: 2
+  id_uqc_outcome: 2
+  username: cat
+  modified_by: cat
+  rationale: Low coverage
+- id_uqc_outcome_ent: 2
+  id_seq_composition: 4
+  id_uqc_outcome: 1
+  username: dog
+  modified_by: dog
+  rationale: Good data
+- id_uqc_outcome_ent: 3
+  id_seq_composition: 5
+  id_uqc_outcome: 1
+  username: cat
+  modified_by: cat
+  rationale: Good data

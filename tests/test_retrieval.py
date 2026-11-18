@@ -24,6 +24,7 @@ from npgqc.db.retrieval import (
     get_compositions_by_run,
     get_mqc_lane_outcomes_by_run,
     get_mqc_library_outcomes_by_run,
+    get_uqc_outcomes_by_run,
 )
 
 LANE_DIGEST = "a" * 64
@@ -102,3 +103,21 @@ class TestMqcLibraryOutcomes:
     @m.it("Returns an empty list for an unknown run")
     def test_by_unknown_run(self, session):
         assert get_mqc_library_outcomes_by_run(session, UNKNOWN_ID_RUN) == []
+
+
+@m.describe("Retrieving user QC outcomes")
+class TestUqcOutcomes:
+    @m.it("Finds the user QC outcomes of a run")
+    def test_by_run(self, session):
+        outcomes = get_uqc_outcomes_by_run(session, ID_RUN)
+        assert [
+            (o.seq_composition.digest, o.uqc_outcome_dict.short_desc, o.rationale)
+            for o in outcomes
+        ] == [
+            (PLEX_DIGEST, "Rejected", "Low coverage"),
+            (PLEX_L2_T4_DIGEST, "Accepted", "Good data"),
+        ]
+
+    @m.it("Returns an empty list for an unknown run")
+    def test_by_unknown_run(self, session):
+        assert get_uqc_outcomes_by_run(session, UNKNOWN_ID_RUN) == []
