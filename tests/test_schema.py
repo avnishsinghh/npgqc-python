@@ -38,6 +38,7 @@ from npgqc.db.schema import (
     SeqComposition,
     SequenceSummary,
     SplitStats,
+    UqcOutcomeEnt,
     VerifyBamId,
 )
 
@@ -95,6 +96,20 @@ class TestQuery:
 
         assert outcome.mqc_outcome_dict.short_desc == "Accepted final"
         assert outcome.seq_composition.mqc_outcome_ent == [outcome]
+        assert isinstance(outcome.last_modified, datetime.datetime)
+
+    @m.it("Retrieves a user QC outcome with its dictionary entry")
+    def test_uqc_outcome(self, session):
+        outcome = session.execute(
+            select(UqcOutcomeEnt).join(SeqComposition).where(
+                SeqComposition.digest == PLEX_DIGEST
+            )
+        ).scalar_one()
+
+        assert outcome.uqc_outcome_dict.short_desc == "Rejected"
+        assert outcome.rationale == "Low coverage"
+        assert outcome.seq_composition.uqc_outcome_ent == [outcome]
+        assert outcome in outcome.uqc_outcome_dict.uqc_outcome_ent
         assert isinstance(outcome.last_modified, datetime.datetime)
 
     @m.it("Round-trips binary data in a LONGBLOB column")

@@ -26,6 +26,7 @@ from npgqc.db.schema import (
     SeqComponent,
     SeqComponentComposition,
     SeqComposition,
+    UqcOutcomeEnt,
 )
 
 
@@ -130,6 +131,35 @@ def get_mqc_library_outcomes_by_run(
         select(MqcLibraryOutcomeEnt)
         .join(compositions)
         .order_by(MqcLibraryOutcomeEnt.id_seq_composition)
+    )
+    return session.scalars(statement).all()
+
+
+def get_uqc_outcomes_by_run(
+    session: Session, id_run: int
+) -> Sequence[UqcOutcomeEnt]:
+    """Retrieves current user QC outcomes for a run.
+
+    Outcomes are found through the components of their compositions, since
+    the outcome table does not have an id_run column.
+
+    Args:
+      session :
+        Database session.
+      id_run :
+        NPG tracking run ID.
+
+    Returns:
+    -------
+      A sequence of outcomes ordered by their composition's primary key.
+
+      An empty sequence is returned if the run has no outcomes.
+    """
+    compositions = _compositions_by_run(id_run).subquery()
+    statement = (
+        select(UqcOutcomeEnt)
+        .join(compositions)
+        .order_by(UqcOutcomeEnt.id_seq_composition)
     )
     return session.scalars(statement).all()
 

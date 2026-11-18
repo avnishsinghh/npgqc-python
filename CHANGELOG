@@ -3,6 +3,13 @@
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+* ORM classes for the genotype and user QC outcome tables
+* Utility to retrieve user QC outcomes by run
+
 ## [0.1.0] - 2026-11-12
 
 ### Added

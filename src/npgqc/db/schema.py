@@ -151,6 +151,7 @@ class SeqComposition(Base):
     gc_bias: Mapped[list['GcBias']] = relationship('GcBias', back_populates='seq_composition')
     gc_fraction: Mapped[list['GcFraction']] = relationship('GcFraction', back_populates='seq_composition')
     generic: Mapped[list['Generic']] = relationship('Generic', back_populates='seq_composition')
+    genotype: Mapped[list['Genotype']] = relationship('Genotype', back_populates='seq_composition')
     genotype_call: Mapped[list['GenotypeCall']] = relationship('GenotypeCall', back_populates='seq_composition')
     haplotag_metrics: Mapped[list['HaplotagMetrics']] = relationship('HaplotagMetrics', back_populates='seq_composition')
     insert_size: Mapped[list['InsertSize']] = relationship('InsertSize', back_populates='seq_composition')
@@ -174,7 +175,26 @@ class SeqComposition(Base):
     tag_metrics: Mapped[list['TagMetrics']] = relationship('TagMetrics', back_populates='seq_composition')
     tags_reporters: Mapped[list['TagsReporters']] = relationship('TagsReporters', back_populates='seq_composition')
     upstream_tags: Mapped[list['UpstreamTags']] = relationship('UpstreamTags', back_populates='seq_composition')
+    uqc_outcome_ent: Mapped[list['UqcOutcomeEnt']] = relationship('UqcOutcomeEnt', back_populates='seq_composition')
+    uqc_outcome_hist: Mapped[list['UqcOutcomeHist']] = relationship('UqcOutcomeHist', back_populates='seq_composition')
     verify_bam_id: Mapped[list['VerifyBamId']] = relationship('VerifyBamId', back_populates='seq_composition')
+
+
+class UqcOutcomeDict(Base):
+    __tablename__ = 'uqc_outcome_dict'
+    __table_args__ = (
+        Index('unique_uqc_outcome_desc', 'short_desc', unique=True),
+        {'comment': 'Dictionary table for utility qc outcomes'}
+    )
+
+    id_uqc_outcome: Mapped[int] = mapped_column(SMALLINT(unsigned=True), primary_key=True, autoincrement=True)
+    short_desc: Mapped[str] = mapped_column(String(50), nullable=False, comment='Short description of the uqc_outcome')
+    long_desc: Mapped[Optional[str]] = mapped_column(String(150), comment='Long description of the uqc_outcome')
+    iscurrent: Mapped[Optional[int]] = mapped_column(TINYINT(1), comment='Catalog value still in use.')
+    isvisible: Mapped[Optional[int]] = mapped_column(TINYINT(1), comment='Is it visible in UI')
+
+    uqc_outcome_ent: Mapped[list['UqcOutcomeEnt']] = relationship('UqcOutcomeEnt', back_populates='uqc_outcome_dict')
+    uqc_outcome_hist: Mapped[list['UqcOutcomeHist']] = relationship('UqcOutcomeHist', back_populates='uqc_outcome_dict')
 
 
 class Adapter(Base):
@@ -385,6 +405,44 @@ class Generic(Base):
     info: Mapped[Optional[object]] = mapped_column(JSON, comment='JSON document with information on how the data were produced')
 
     seq_composition: Mapped['SeqComposition'] = relationship('SeqComposition', back_populates='generic')
+
+
+class Genotype(Base):
+    __tablename__ = 'genotype'
+    __table_args__ = (
+        ForeignKeyConstraint(['id_seq_composition'], ['seq_composition.id_seq_composition'], name='genotype_compos_fk'),
+        Index('genotype_compos_ind_unique', 'id_seq_composition', 'snp_call_set', unique=True),
+        Index('genotype_idrun_ind', 'id_run')
+    )
+
+    id_genotype: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    id_seq_composition: Mapped[int] = mapped_column(BIGINT(unsigned=True), nullable=False, comment='A foreign key referencing the id_seq_composition column of the seq_composition table')
+    alternate_match_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("'0'"))
+    alternate_relaxed_match_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("'0'"))
+    snp_call_set: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("'UNSPECIFIED'"))
+    bam_call_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("'0'"))
+    id_run: Mapped[Optional[int]] = mapped_column(BIGINT(unsigned=True))
+    position: Mapped[Optional[int]] = mapped_column(TINYINT(unsigned=True))
+    path: Mapped[Optional[str]] = mapped_column(String(256))
+    expected_sample_name: Mapped[Optional[str]] = mapped_column(String(64))
+    search_parameters: Mapped[Optional[str]] = mapped_column(Text)
+    sample_name_match: Mapped[Optional[str]] = mapped_column(Text)
+    sample_name_relaxed_match: Mapped[Optional[str]] = mapped_column(Text)
+    alternate_matches: Mapped[Optional[str]] = mapped_column(Text)
+    alternate_relaxed_matches: Mapped[Optional[str]] = mapped_column(Text)
+    pass_: Mapped[Optional[int]] = mapped_column('pass', TINYINT(1))
+    comments: Mapped[Optional[str]] = mapped_column(Text)
+    info: Mapped[Optional[str]] = mapped_column(Text)
+    tag_index: Mapped[Optional[int]] = mapped_column(BigInteger)
+    genotype_data_set: Mapped[Optional[str]] = mapped_column(String(64))
+    bam_file: Mapped[Optional[str]] = mapped_column(String(64))
+    bam_file_md5: Mapped[Optional[str]] = mapped_column(String(64))
+    reference: Mapped[Optional[str]] = mapped_column(String(128))
+    bam_call_string: Mapped[Optional[str]] = mapped_column(String(256))
+    bam_gt_depths_string: Mapped[Optional[str]] = mapped_column(String(512))
+    bam_gt_likelihood_string: Mapped[Optional[str]] = mapped_column(String(2048))
+
+    seq_composition: Mapped['SeqComposition'] = relationship('SeqComposition', back_populates='genotype')
 
 
 class GenotypeCall(Base):
@@ -1014,6 +1072,50 @@ class UpstreamTags(Base):
     tag_index: Mapped[Optional[int]] = mapped_column(BigInteger)
 
     seq_composition: Mapped['SeqComposition'] = relationship('SeqComposition', back_populates='upstream_tags')
+
+
+class UqcOutcomeEnt(Base):
+    __tablename__ = 'uqc_outcome_ent'
+    __table_args__ = (
+        ForeignKeyConstraint(['id_seq_composition'], ['seq_composition.id_seq_composition'], name='fk_uqc_outcome_ent_seq_composition'),
+        ForeignKeyConstraint(['id_uqc_outcome'], ['uqc_outcome_dict.id_uqc_outcome'], name='fk_uqc_outcome_ent_uqc_outcome_dict'),
+        Index('fk_uqc_outcome_ent_uqc_outcome_dict', 'id_uqc_outcome'),
+        Index('id_seq_composition_unique', 'id_seq_composition', unique=True),
+        {'comment': 'Entity table for utility qc outcomes'}
+    )
+
+    id_uqc_outcome_ent: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    id_seq_composition: Mapped[int] = mapped_column(BIGINT(unsigned=True), nullable=False, comment='A foreign key referencing the id_seq_composition column of the seq_composition table')
+    id_uqc_outcome: Mapped[int] = mapped_column(SMALLINT(unsigned=True), nullable=False, comment='A foreign key referencing the id_uqc_outcome column of the uqc_outcome_dict table')
+    username: Mapped[str] = mapped_column(CHAR(128), nullable=False, comment='Web interface username')
+    last_modified: Mapped[datetime.datetime] = mapped_column(TIMESTAMP, nullable=False, server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'), comment='last time the record was modified')
+    modified_by: Mapped[str] = mapped_column(CHAR(128), nullable=False, comment='Last user to modify the row')
+    rationale: Mapped[str] = mapped_column(CHAR(128), nullable=False, comment='Audit trace')
+
+    seq_composition: Mapped['SeqComposition'] = relationship('SeqComposition', back_populates='uqc_outcome_ent')
+    uqc_outcome_dict: Mapped['UqcOutcomeDict'] = relationship('UqcOutcomeDict', back_populates='uqc_outcome_ent')
+
+
+class UqcOutcomeHist(Base):
+    __tablename__ = 'uqc_outcome_hist'
+    __table_args__ = (
+        ForeignKeyConstraint(['id_seq_composition'], ['seq_composition.id_seq_composition'], name='fk_uqc_outcome_hist_seq_composition'),
+        ForeignKeyConstraint(['id_uqc_outcome'], ['uqc_outcome_dict.id_uqc_outcome'], name='fk_uqc_outcome_hist_uqc_outcome_dict'),
+        Index('fk_uqc_outcome_hist_seq_composition', 'id_seq_composition'),
+        Index('fk_uqc_outcome_hist_uqc_outcome_dict', 'id_uqc_outcome'),
+        {'comment': 'Historic table for utility qc outcomes'}
+    )
+
+    id_uqc_outcome_hist: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    id_seq_composition: Mapped[int] = mapped_column(BIGINT(unsigned=True), nullable=False, comment='A foreign key referencing the id_seq_composition column of the seq_composition table')
+    id_uqc_outcome: Mapped[int] = mapped_column(SMALLINT(unsigned=True), nullable=False, comment='A foreign key referencing the id_uqc_outcome column of the uqc_outcome_dict table')
+    username: Mapped[str] = mapped_column(CHAR(128), nullable=False, comment='Web interface username')
+    last_modified: Mapped[datetime.datetime] = mapped_column(TIMESTAMP, nullable=False, server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'), comment='last time the record was modified')
+    modified_by: Mapped[str] = mapped_column(CHAR(128), nullable=False, comment='Last user to modify the row')
+    rationale: Mapped[str] = mapped_column(String(150), nullable=False, comment='Audit trace')
+
+    seq_composition: Mapped['SeqComposition'] = relationship('SeqComposition', back_populates='uqc_outcome_hist')
+    uqc_outcome_dict: Mapped['UqcOutcomeDict'] = relationship('UqcOutcomeDict', back_populates='uqc_outcome_hist')
 
 
 class VerifyBamId(Base):
